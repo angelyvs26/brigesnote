@@ -1,6 +1,6 @@
 # 🏫 Bridges Note - MINEDU ESCALE Bridge API
 
-Microservicio y API REST en **Laravel 7** diseñado para sincronizar, estructurar y servir el catálogo oficial de instituciones educativas (colegios) y la división política/geográfica (regiones, provincias y distritos) del Perú, consumiendo directamente la API pública oficial de **MINEDU / ESCALE** (*Estadística de la Calidad Educativa*).
+Microservicio y API REST en **Laravel 13 (PHP 8.3)** diseñado para sincronizar, estructurar y servir el catálogo oficial de instituciones educativas (colegios) y la división política/geográfica (regiones, provincias y distritos) del Perú, consumiendo directamente la API pública oficial de **MINEDU / ESCALE** (*Estadística de la Calidad Educativa*).
 
 ---
 
@@ -52,12 +52,12 @@ Servir como un **puente de datos optimizado** para aplicaciones cliente (sistema
 
 ## 💻 Requisitos del Sistema
 
-- **PHP:** `7.4.x` (Recomendado) o `8.0.x`.
-  > ⚠️ **Importante:** Laravel 7 no es compatible con PHP 8.1 o superior debido a cambios en la interfaz `ArrayAccess`.
-- **Laravel Framework:** `7.30.7`
+- **PHP:** `8.3.x` o superior, con las extensiones `pdo_mysql`, `mbstring`, `openssl`, `curl`, `fileinfo`, `tokenizer`, `xml` y `ctype`.
+- **Laravel Framework:** `13.x`
 - **Gestor de Paquetes:** Composer 2.x
-- **Base de Datos:** MySQL 5.7+ / 8.0+ o MariaDB 10.3+
-- **Servidor Web Local:** Laragon (con PHP 7.4 Thread Safe - TS), XAMPP o `php artisan serve`.
+- **Base de Datos:** MySQL 8.0+ o MariaDB 10.6+
+- **Servidor Web Local:** Laragon, XAMPP o `php artisan serve`.
+- **Document root:** la carpeta `public/` (nunca la raíz del proyecto).
 
 ---
 
@@ -111,7 +111,8 @@ La aplicación quedará disponible en `http://127.0.0.1:8000`.
 Asegúrate de tener estos valores configurados en tu archivo `.env`:
 
 ```env
-APP_NAME="Bridges Note"
+APP_NAME='PROYECTO BASE'
+LOGO_PROJECT='https://cdn-icons-png.flaticon.com/512/6886/6886480.png'
 APP_ENV=local
 APP_KEY=base64:...
 APP_DEBUG=true
@@ -127,9 +128,13 @@ DB_PASSWORD=
 
 # Controlador de sesión en archivo (no requiere tabla 'sessions' en BD)
 SESSION_DRIVER=file
-CACHE_DRIVER=file
+CACHE_STORE=file
 QUEUE_CONNECTION=sync
+BROADCAST_CONNECTION=log
+MAIL_MAILER=log
 ```
+
+> ℹ️ Desde Laravel 11 cambiaron algunos nombres: `CACHE_DRIVER` → `CACHE_STORE`, `BROADCAST_DRIVER` → `BROADCAST_CONNECTION` y `MAIL_ENCRYPTION` → `MAIL_SCHEME`. Las variables `PUSHER_*` y `MIX_*` ya no se usan.
 
 ---
 
@@ -168,9 +173,11 @@ Obtiene todas las regiones del país.
     {
       "idRegion": "15",
       "nombreRegion": "LIMA",
-      "pointX": -12.046374,
-      "pointY": -77.042793,
-      "zoom": 10
+      "pointX": "-12.0463740",
+      "pointY": "-77.0427930",
+      "zoom": 10,
+      "created_at": "2024-12-22T01:00:00.000000Z",
+      "updated_at": "2024-12-22T01:00:00.000000Z"
     }
   ]
 }
@@ -192,8 +199,10 @@ Obtiene las provincias pertenecientes a una región (mediante los 2 primeros dí
     {
       "idProvincia": "1501",
       "nombreProvincia": "LIMA",
-      "pointX": -12.046374,
-      "pointY": -77.042793
+      "pointX": "-12.0463740",
+      "pointY": "-77.0427930",
+      "created_at": "2024-12-22T01:00:00.000000Z",
+      "updated_at": "2024-12-22T01:00:00.000000Z"
     }
   ]
 }
@@ -253,6 +262,30 @@ Obtiene todas las instituciones educativas registradas en un distrito según su 
 
 ---
 
+### Respuesta de error (404)
+Cuando no hay resultados, los endpoints de provincias, distritos y colegios responden:
+```json
+{ "status": "error", "message": "No se encontraron distritos para esta provincia." }
+```
+
+> Los decimales (`pointX`, `pointY`) se devuelven como **string** y `zoom` como **entero**. La API permite CORS desde cualquier origen y limita a **60 peticiones por minuto** por IP. Existe además `GET /up` como *health check*.
+
+---
+
+## 🧪 Tests
+
+Los tests usan MySQL (las consultas usan `LEFT()`) sobre la base **`escalebridge_test`**, forzada en `phpunit.xml` para no tocar nunca la base real. Créala vacía una sola vez:
+
+```sql
+CREATE DATABASE escalebridge_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+```bash
+php artisan test
+```
+
+---
+
 ## 📂 Estructura del Proyecto
 
 ```
@@ -272,8 +305,11 @@ brigesnote/
 │   ├── ..._create_provinces_table.php
 │   ├── ..._create_districts_table.php
 │   └── ..._create_schools_table.php
+├── bootstrap/app.php               # Rutas, middleware (throttle) y manejo de excepciones
+├── public/                         # Document root (index.php, .htaccess, web.config)
 ├── routes/
 │   └── api.php                     # Definición de rutas REST
+├── tests/Feature/                  # Tests de la API y del comando de sincronización
 ├── .env.example                    # Plantilla de variables de entorno
 └── .gitignore                      # Reglas de exclusión para Git
 ```
@@ -282,17 +318,17 @@ brigesnote/
 
 ## 🛠️ Solución de Problemas Frecuentes
 
-### 1. Error: `During inheritance of ArrayAccess: Return type of ... should either be compatible`
-- **Causa:** Estás ejecutando el proyecto con PHP 8.1, 8.2 o superior.
-- **Solución:** Cambia la versión de PHP en Laragon (o en tu servidor) a **PHP 7.4 (Thread Safe)** o **PHP 8.0**.
-
-### 2. Error: `Service Apache can not start ... fcgid.conf` en Laragon
-- **Causa:** Descargaste la versión `nts` (Non-Thread Safe) de PHP en Windows.
-- **Solución:** Descarga e instala en Laragon la versión **Thread Safe (TS)** desde [windows.php.net](https://windows.php.net/downloads/releases/archives/).
-
-### 3. Error: `Base table or view not found: 1146 Table '...sessions' doesn't exist`
+### 1. Error: `Base table or view not found: 1146 Table '...sessions' doesn't exist`
 - **Causa:** En el archivo `.env` está configurado `SESSION_DRIVER=database` sin haber migrado la tabla de sesiones.
 - **Solución:** Cambia en `.env` a `SESSION_DRIVER=file`.
+
+### 2. Se ve el listado de archivos o el `.env` desde el navegador
+- **Causa:** El servidor web apunta a la raíz del proyecto.
+- **Solución:** Configura el *document root* en la carpeta `public/` (en Laragon: *Menu → Preferences → Document Root*, o un virtual host apuntando a `public`).
+
+### 3. Error: `Your requirements could not be resolved` / `requires php >=8.4`
+- **Causa:** Se ejecutó `composer update` sin respetar la plataforma.
+- **Solución:** El `composer.json` fija `config.platform.php = 8.3.0`; no lo quites y usa `composer install` para respetar el `composer.lock`.
 
 ---
 

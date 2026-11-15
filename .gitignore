@@ -76,3 +76,9 @@ $RECYCLE.BIN/
 .AppleDouble
 .LSOverride
 ._*
+
+# Laravel 11+
+/.phpunit.cache
+/storage/*.key
+/storage/pail
+/public/build
