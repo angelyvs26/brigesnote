@@ -8,14 +8,9 @@ class School extends Model
 {
     protected $table = 'schools';
 
-    protected $primaryKey = 'codMod';
-
-    public $incrementing = false;
-
-    protected $keyType = 'string';
-
     protected $fillable = [
         'codMod',
+        'anexo',
         'idDistrito',
         'nombreCenEdu',
         'cenPob',

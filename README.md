@@ -150,9 +150,16 @@ php artisan sync:locations
 1. **Regiones (`/padron/rest/regiones`):** Descarga los 25 departamentos del país con sus nombres, coordenadas (`pointX`, `pointY`) y nivel de `zoom`.
 2. **Provincias (`/padron/rest/provincias?idRegion={id}`):** Por cada región, descarga sus provincias.
 3. **Distritos (`/padron/rest/distritos?idProvincia={id}`):** Por cada provincia, descarga los distritos correspondientes.
-4. **Colegios (`/padron/rest/instituciones?estados=1&ubigeo={idDistrito}`):** Por cada distrito, descarga las instituciones educativas activas y las almacena en la tabla `schools` vinculando el código modular (`codMod`) como llave primaria y asociando el `idDistrito`.
+4. **Colegios (`/padron/rest/instituciones?estados=1&ubigeo={idDistrito}&start={n}&max=500`):** Por cada distrito (con barra de progreso), recorre **todas las páginas** de instituciones activas de 500 en 500 y las guarda por lotes (`upsert`) en la tabla `schools`. Cada colegio se identifica por **`codMod` + `anexo`**: un mismo código modular puede tener varias sedes, incluso en distritos distintos.
 
-> ⏱️ **Nota:** La sincronización total recorre más de 1,800 distritos y 80,000 colegios, por lo que puede tomar varios minutos según la velocidad de conexión y respuesta del servidor del MINEDU.
+Todas las peticiones usan *timeout* (60 s), 3 reintentos y una pausa de 250 ms entre llamadas. Si un distrito falla, se registra el error y se continúa con el siguiente; al final se muestra un resumen con distritos procesados, colegios guardados y errores.
+
+Para sincronizar solo los colegios de algunos distritos (sin tocar regiones, provincias ni distritos):
+```bash
+php artisan sync:locations --distrito=150101 --distrito=150132
+```
+
+> ⏱️ **Nota:** La sincronización total recorre más de 1,800 distritos; como referencia, solo Cercado de Lima (549), San Juan de Lurigancho (1,803) y Arequipa (537) tardan alrededor de 70 segundos.
 
 ---
 
@@ -247,7 +254,9 @@ Obtiene todas las instituciones educativas registradas en un distrito según su 
   "status": "success",
   "data": [
     {
+      "id": 1,
       "codMod": "0273572",
+      "anexo": "0",
       "idDistrito": "150101",
       "nombreCenEdu": "JUAN JIMENEZ PIMENTEL",
       "cenPob": "LIMA",
