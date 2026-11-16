@@ -25,10 +25,13 @@ class LocationController extends Controller
 
     /**
      * Obtener las provincias de una región (los dos primeros caracteres de idProvincia).
+     *
+     * Se usa LIKE 'xx%' (y no LEFT()) para que MySQL aproveche la clave primaria.
+     * $idRegion llega validado como dígitos desde la ruta, sin comodines % ni _.
      */
     public function getProvinces(string $idRegion): JsonResponse
     {
-        $provinces = Province::whereRaw('LEFT(idProvincia, 2) = ?', [$idRegion])->get();
+        $provinces = Province::where('idProvincia', 'like', $idRegion.'%')->get();
 
         if ($provinces->isEmpty()) {
             return response()->json([
@@ -45,10 +48,12 @@ class LocationController extends Controller
 
     /**
      * Obtener los distritos de una provincia (los cuatro primeros caracteres de idDistrito).
+     *
+     * Igual que en provincias: LIKE 'xxxx%' sobre la clave primaria.
      */
     public function getDistricts(string $idProvince): JsonResponse
     {
-        $districts = District::whereRaw('LEFT(idDistrito, 4) = ?', [$idProvince])->get();
+        $districts = District::where('idDistrito', 'like', $idProvince.'%')->get();
 
         if ($districts->isEmpty()) {
             return response()->json([

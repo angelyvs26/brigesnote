@@ -86,14 +86,13 @@ class LocationApiTest extends TestCase
 
     public function test_provincias_inexistentes_devuelve_404(): void
     {
-        foreach (['88', '1'] as $idRegion) {
-            $this->getJson("/api/provincias/{$idRegion}")
-                ->assertNotFound()
-                ->assertExactJson([
-                    'status' => 'error',
-                    'message' => 'No se encontraron provincias para esta región.',
-                ]);
-        }
+        // Formato válido pero sin datos (los formatos inválidos están en RouteParameterValidationTest).
+        $this->getJson('/api/provincias/88')
+            ->assertNotFound()
+            ->assertExactJson([
+                'status' => 'error',
+                'message' => 'No se encontraron provincias para esta región.',
+            ]);
     }
 
     public function test_distritos_filtra_por_los_cuatro_primeros_digitos(): void
