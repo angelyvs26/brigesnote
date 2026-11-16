@@ -245,11 +245,15 @@ Obtiene los distritos de una provincia (mediante los 4 dígitos de ubigeo provin
 ---
 
 ### 4. Listar Colegios por Distrito (Ubigeo)
-Obtiene las instituciones educativas **activas** de un distrito según su ubigeo de 6 dígitos (los colegios dados de baja no se devuelven).
+Obtiene las instituciones educativas **activas** de un distrito según su ubigeo de 6 dígitos (los colegios dados de baja no se devuelven), **paginadas** y ordenadas por `codMod` y `anexo`.
 
-- **URL:** `/api/colegios/{ubigeo}`
+- **URL:** `/api/colegios/{ubigeo}?page={n}&per_page={m}`
 - **Método:** `GET`
-- **Ejemplo:** `/api/colegios/150101`
+- **Parámetros opcionales:**
+  - `page`: número de página, desde 1 (por defecto 1). Una página posterior a la última devuelve `data` vacío.
+  - `per_page`: colegios por página, de 1 a 100 (por defecto 50).
+  - Valores no válidos (por ejemplo `per_page=101` o `page=0`) responden **422** con el detalle del error.
+- **Ejemplo:** `/api/colegios/150101?page=2&per_page=50`
 - **Respuesta Exitosa (200 OK):**
 ```json
 {
@@ -269,7 +273,21 @@ Obtiene las instituciones educativas **activas** de un distrito según su ubigeo
       "activo": true,
       "ultima_sincronizacion": "2026-11-15T10:00:00.123456Z"
     }
-  ]
+  ],
+  "meta": {
+    "current_page": 2,
+    "per_page": 50,
+    "total": 549,
+    "last_page": 11,
+    "from": 51,
+    "to": 100
+  },
+  "links": {
+    "first": "/api/colegios/150101?per_page=50&page=1",
+    "last": "/api/colegios/150101?per_page=50&page=11",
+    "prev": "/api/colegios/150101?per_page=50&page=1",
+    "next": "/api/colegios/150101?per_page=50&page=3"
+  }
 }
 ```
 
@@ -280,6 +298,8 @@ Cuando no hay resultados, los endpoints de provincias, distritos y colegios resp
 ```json
 { "status": "error", "message": "No se encontraron distritos para esta provincia." }
 ```
+
+> **Caché:** todas las respuestas (incluidos los 404) se guardan en el store de caché `api` (`storage/framework/cache/api`) durante un máximo de 24 h; la clave incluye los parámetros y, en colegios, `page` y `per_page`. Cada sincronización **sin errores** (completa o con `--distrito`) vacía ese store. Si cambias datos a mano en la base, límpialo con `php artisan cache:clear api`.
 
 > Los decimales (`pointX`, `pointY`) se devuelven como **string** y `zoom` como **entero**. La API permite CORS desde cualquier origen y limita a **60 peticiones por minuto** por IP. Existe además `GET /up` como *health check*.
 

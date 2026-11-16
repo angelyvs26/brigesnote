@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Http\Controllers\LocationController;
 use App\Models\District;
 use App\Models\Province;
 use App\Models\Region;
@@ -10,6 +11,7 @@ use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 
@@ -79,6 +81,15 @@ class SyncLocations extends Command
             $this->warn($isFullSync
                 ? 'No se desactivó ningún colegio porque la sincronización tuvo errores.'
                 : 'No se desactivó ningún colegio porque la sincronización fue parcial (--distrito).');
+        }
+
+        // Solo una sincronización exitosa (completa o parcial, sin errores) invalida
+        // las respuestas cacheadas de la API. Si se interrumpe, no se llega aquí.
+        if ($this->errors === []) {
+            Cache::store(LocationController::CACHE_STORE)->flush();
+            $this->info('Caché de la API limpiada.');
+        } else {
+            $this->warn('No se limpió la caché de la API porque la sincronización tuvo errores.');
         }
 
         $this->info('Sincronización completa.');

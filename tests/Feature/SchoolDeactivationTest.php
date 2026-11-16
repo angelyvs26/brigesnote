@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\LocationController;
 use App\Models\School;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use RuntimeException;
@@ -183,7 +185,9 @@ class SchoolDeactivationTest extends TestCase
             ->assertJsonPath('data.0.activo', true);
 
         // Un distrito cuyos colegios están todos de baja responde como "sin colegios".
+        // (Se vacía la caché porque el cambio no viene de una sincronización.)
         School::where('idDistrito', '150101')->update(['activo' => false]);
+        Cache::store(LocationController::CACHE_STORE)->flush();
 
         $this->getJson('/api/colegios/150101')
             ->assertNotFound()
