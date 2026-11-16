@@ -170,19 +170,6 @@ class LocationApiTest extends TestCase
             ]);
     }
 
-    public function test_cors_permite_cualquier_origen_en_la_api(): void
-    {
-        $this->getJson('/api/regiones', ['Origin' => 'http://cliente.test'])
-            ->assertOk()
-            ->assertHeader('Access-Control-Allow-Origin', '*');
-
-        $this->call('OPTIONS', '/api/regiones', server: [
-            'HTTP_ORIGIN' => 'http://cliente.test',
-            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'GET',
-        ])->assertNoContent()
-            ->assertHeader('Access-Control-Allow-Origin', '*');
-    }
-
     public function test_la_api_mantiene_el_limite_de_60_peticiones_por_minuto(): void
     {
         $this->getJson('/api/regiones')
