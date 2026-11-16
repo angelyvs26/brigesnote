@@ -39,6 +39,16 @@ return [
             'serialize' => false,
         ],
 
+        // Respuestas de la API (LocationController). Store separado para poder
+        // vaciarlo tras cada sincronización sin borrar otras cachés, como los
+        // contadores del límite de peticiones.
+        'api' => [
+            'driver' => env('API_CACHE_DRIVER', 'file'),
+            'path' => storage_path('framework/cache/api'),
+            'lock_path' => storage_path('framework/cache/api'),
+            'serialize' => false,
+        ],
+
         'database' => [
             'driver' => 'database',
             'connection' => env('DB_CACHE_CONNECTION'),

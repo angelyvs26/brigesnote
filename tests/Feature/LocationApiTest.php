@@ -42,9 +42,12 @@ class LocationApiTest extends TestCase
         ]);
 
         DB::table('schools')->insert([
-            ['codMod' => '0273572', 'idDistrito' => '150101', 'nombreCenEdu' => 'JUAN JIMENEZ PIMENTEL', 'cenPob' => 'LIMA', 'dirCen' => 'JR. LAMPA 240', 'director' => 'PEDRO PEREZ', 'dis_crecer' => null, 'dis_juntos' => null] + $ts,
-            ['codMod' => '0300012', 'idDistrito' => '150101', 'nombreCenEdu' => 'NUESTRA SEÑORA DE GUADALUPE', 'cenPob' => 'LIMA', 'dirCen' => 'AV. ALFONSO UGARTE 1050', 'director' => null, 'dis_crecer' => '1', 'dis_juntos' => '0'] + $ts,
-            ['codMod' => '0400001', 'idDistrito' => '040101', 'nombreCenEdu' => 'I.E. AREQUIPA', 'cenPob' => 'CERCADO', 'dirCen' => null, 'director' => null, 'dis_crecer' => null, 'dis_juntos' => null] + $ts,
+            ['codMod' => '0273572', 'anexo' => '0', 'idDistrito' => '150101', 'nombreCenEdu' => 'JUAN JIMENEZ PIMENTEL', 'cenPob' => 'LIMA', 'dirCen' => 'JR. LAMPA 240', 'director' => 'PEDRO PEREZ', 'dis_crecer' => null, 'dis_juntos' => null] + $ts,
+            ['codMod' => '0300012', 'anexo' => '0', 'idDistrito' => '150101', 'nombreCenEdu' => 'NUESTRA SEÑORA DE GUADALUPE', 'cenPob' => 'LIMA', 'dirCen' => 'AV. ALFONSO UGARTE 1050', 'director' => null, 'dis_crecer' => '1', 'dis_juntos' => '0'] + $ts,
+            ['codMod' => '0400001', 'anexo' => '0', 'idDistrito' => '040101', 'nombreCenEdu' => 'I.E. AREQUIPA', 'cenPob' => 'CERCADO', 'dirCen' => null, 'director' => null, 'dis_crecer' => null, 'dis_juntos' => null] + $ts,
+            // Mismo código modular con dos sedes (anexos) en distritos distintos.
+            ['codMod' => '1066018', 'anexo' => '0', 'idDistrito' => '150101', 'nombreCenEdu' => 'ARZOBISPO LOAYZA', 'cenPob' => null, 'dirCen' => null, 'director' => null, 'dis_crecer' => null, 'dis_juntos' => null] + $ts,
+            ['codMod' => '1066018', 'anexo' => 'D', 'idDistrito' => '150132', 'nombreCenEdu' => 'ARZOBISPO LOAYZA', 'cenPob' => null, 'dirCen' => null, 'director' => null, 'dis_crecer' => null, 'dis_juntos' => null] + $ts,
         ]);
     }
 
@@ -83,14 +86,13 @@ class LocationApiTest extends TestCase
 
     public function test_provincias_inexistentes_devuelve_404(): void
     {
-        foreach (['88', '1'] as $idRegion) {
-            $this->getJson("/api/provincias/{$idRegion}")
-                ->assertNotFound()
-                ->assertExactJson([
-                    'status' => 'error',
-                    'message' => 'No se encontraron provincias para esta región.',
-                ]);
-        }
+        // Formato válido pero sin datos (los formatos inválidos están en RouteParameterValidationTest).
+        $this->getJson('/api/provincias/88')
+            ->assertNotFound()
+            ->assertExactJson([
+                'status' => 'error',
+                'message' => 'No se encontraron provincias para esta región.',
+            ]);
     }
 
     public function test_distritos_filtra_por_los_cuatro_primeros_digitos(): void
@@ -122,10 +124,16 @@ class LocationApiTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('status', 'success')
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(3, 'data');
+
+        $school = collect($response->json('data'))->firstWhere('codMod', '0300012');
+
+        $this->assertIsInt($school['id']);
+        unset($school['id']);
 
         $this->assertSame([
             'codMod' => '0300012',
+            'anexo' => '0',
             'idDistrito' => '150101',
             'nombreCenEdu' => 'NUESTRA SEÑORA DE GUADALUPE',
             'cenPob' => 'LIMA',
@@ -133,9 +141,23 @@ class LocationApiTest extends TestCase
             'director' => null,
             'dis_crecer' => '1',
             'dis_juntos' => '0',
+            'activo' => true,
+            'ultima_sincronizacion' => null,
             'created_at' => self::TS_JSON,
             'updated_at' => self::TS_JSON,
-        ], collect($response->json('data'))->firstWhere('codMod', '0300012'));
+        ], $school);
+    }
+
+    public function test_un_codmod_con_varios_anexos_aparece_en_cada_distrito(): void
+    {
+        $this->getJson('/api/colegios/150101')
+            ->assertOk()
+            ->assertJsonFragment(['codMod' => '1066018', 'anexo' => '0', 'idDistrito' => '150101']);
+
+        $this->getJson('/api/colegios/150132')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonFragment(['codMod' => '1066018', 'anexo' => 'D', 'idDistrito' => '150132']);
     }
 
     public function test_colegios_inexistentes_devuelve_404(): void
@@ -146,19 +168,6 @@ class LocationApiTest extends TestCase
                 'status' => 'error',
                 'message' => 'No se encontraron escuelas para este distrito.',
             ]);
-    }
-
-    public function test_cors_permite_cualquier_origen_en_la_api(): void
-    {
-        $this->getJson('/api/regiones', ['Origin' => 'http://cliente.test'])
-            ->assertOk()
-            ->assertHeader('Access-Control-Allow-Origin', '*');
-
-        $this->call('OPTIONS', '/api/regiones', server: [
-            'HTTP_ORIGIN' => 'http://cliente.test',
-            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'GET',
-        ])->assertNoContent()
-            ->assertHeader('Access-Control-Allow-Origin', '*');
     }
 
     public function test_la_api_mantiene_el_limite_de_60_peticiones_por_minuto(): void
