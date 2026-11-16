@@ -9,6 +9,7 @@ use App\Models\School;
 use Illuminate\Console\Command;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 
@@ -41,27 +42,43 @@ class SyncLocations extends Command
     /** @var array<int, string> */
     private array $errors = [];
 
+    /**
+     * Inicio de esta ejecución con microsegundos ("Y-m-d H:i:s.u"). Se guarda en
+     * ultima_sincronizacion de cada colegio recibido y sirve para detectar los
+     * que no aparecieron.
+     */
+    private string $startedAt;
+
     public function handle(): int
     {
         $this->info('Iniciando sincronización de ubicaciones...');
 
+        $this->startedAt = Carbon::now()->format('Y-m-d H:i:s.u');
         $districtIds = $this->option('distrito');
+        $isFullSync = $districtIds === [];
 
-        if ($districtIds === []) {
+        if ($isFullSync) {
             $districtIds = $this->syncUbigeo();
         } else {
             $this->info('Se omite la sincronización de regiones, provincias y distritos (opción --distrito).');
         }
 
         $saved = $this->syncAllSchools(array_values(array_unique($districtIds)));
+        $deactivated = $this->deactivateMissingSchools($isFullSync);
 
         $this->newLine();
-        $this->table(['Distritos procesados', 'Colegios guardados', 'Errores'], [
-            [count(array_unique($districtIds)), $saved, count($this->errors)],
+        $this->table(['Distritos procesados', 'Colegios guardados', 'Colegios desactivados', 'Errores'], [
+            [count(array_unique($districtIds)), $saved, $deactivated ?? '-', count($this->errors)],
         ]);
 
         foreach ($this->errors as $error) {
             $this->error($error);
+        }
+
+        if ($deactivated === null) {
+            $this->warn($isFullSync
+                ? 'No se desactivó ningún colegio porque la sincronización tuvo errores.'
+                : 'No se desactivó ningún colegio porque la sincronización fue parcial (--distrito).');
         }
 
         $this->info('Sincronización completa.');
@@ -104,6 +121,12 @@ class SyncLocations extends Command
             foreach ($this->syncProvinces($region['idRegion']) as $provinceId) {
                 array_push($districtIds, ...$this->syncDistricts($provinceId));
             }
+        }
+
+        // Una respuesta vacía de ESCALE no es un país sin distritos: se trata como
+        // error para no desactivar todos los colegios al final de la ejecución.
+        if ($districtIds === [] && $this->errors === []) {
+            $this->errors[] = 'ESCALE no devolvió ningún distrito';
         }
 
         $this->info('Ubigeo sincronizado: '.count($districtIds).' distritos.');
@@ -234,6 +257,8 @@ class SyncLocations extends Command
                 'director' => $school['director'] ?? null,
                 'dis_crecer' => $school['dis_crecer'] ?? null,
                 'dis_juntos' => $school['dis_juntos'] ?? null,
+                'activo' => true,
+                'ultima_sincronizacion' => $this->startedAt,
             ], $items);
 
             // Si ESCALE ignorara "start" devolvería siempre la misma página: se corta el bucle.
@@ -248,7 +273,7 @@ class SyncLocations extends Command
             School::upsert(
                 $rows,
                 ['codMod', 'anexo'],
-                ['idDistrito', 'nombreCenEdu', 'cenPob', 'dirCen', 'director', 'dis_crecer', 'dis_juntos']
+                ['idDistrito', 'nombreCenEdu', 'cenPob', 'dirCen', 'director', 'dis_crecer', 'dis_juntos', 'activo', 'ultima_sincronizacion']
             );
 
             $saved += count($rows);
@@ -261,6 +286,30 @@ class SyncLocations extends Command
         $this->errors[] = "El distrito $districtId superó el tope de ".self::MAX_PAGES.' páginas';
 
         return $saved;
+    }
+
+    /**
+     * Marca como inactivos los colegios que no aparecieron en esta ejecución.
+     *
+     * Solo se hace tras una sincronización completa (sin --distrito) y sin
+     * ningún error: con datos parciales se desactivarían colegios que siguen
+     * existiendo. Si el comando se interrumpe o lanza una excepción, este paso
+     * nunca llega a ejecutarse.
+     *
+     * @return int|null colegios desactivados, o null si no correspondía hacerlo
+     */
+    private function deactivateMissingSchools(bool $isFullSync): ?int
+    {
+        if (! $isFullSync || $this->errors !== []) {
+            return null;
+        }
+
+        return School::query()
+            ->where('activo', true)
+            ->where(fn ($query) => $query
+                ->whereNull('ultima_sincronizacion')
+                ->orWhere('ultima_sincronizacion', '<', $this->startedAt))
+            ->update(['activo' => false]);
     }
 
     /**

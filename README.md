@@ -154,7 +154,9 @@ php artisan sync:locations
 
 Todas las peticiones usan *timeout* (60 s), 3 reintentos y una pausa de 250 ms entre llamadas. Si un distrito falla, se registra el error y se continúa con el siguiente; al final se muestra un resumen con distritos procesados, colegios guardados y errores.
 
-Para sincronizar solo los colegios de algunos distritos (sin tocar regiones, provincias ni distritos):
+**Colegios dados de baja:** cada colegio recibido queda con `activo = true` y `ultima_sincronizacion` = inicio de la ejecución. Al terminar una sincronización **completa** (sin `--distrito`) y **sin ningún error**, los colegios que no aparecieron se marcan como `activo = false`. Si hubo errores, si ESCALE no devolvió distritos o si el comando se interrumpe, no se desactiva nada. Un colegio dado de baja que vuelve a aparecer se reactiva automáticamente.
+
+Para sincronizar solo los colegios de algunos distritos (sin tocar regiones, provincias ni distritos; nunca desactiva colegios):
 ```bash
 php artisan sync:locations --distrito=150101 --distrito=150132
 ```
@@ -243,7 +245,7 @@ Obtiene los distritos de una provincia (mediante los 4 dígitos de ubigeo provin
 ---
 
 ### 4. Listar Colegios por Distrito (Ubigeo)
-Obtiene todas las instituciones educativas registradas en un distrito según su ubigeo de 6 dígitos.
+Obtiene las instituciones educativas **activas** de un distrito según su ubigeo de 6 dígitos (los colegios dados de baja no se devuelven).
 
 - **URL:** `/api/colegios/{ubigeo}`
 - **Método:** `GET`
@@ -263,7 +265,9 @@ Obtiene todas las instituciones educativas registradas en un distrito según su 
       "dirCen": "JR. LAMPA 240",
       "director": "PEDRO PEREZ",
       "dis_crecer": null,
-      "dis_juntos": null
+      "dis_juntos": null,
+      "activo": true,
+      "ultima_sincronizacion": "2026-11-15T10:00:00.123456Z"
     }
   ]
 }

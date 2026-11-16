@@ -173,7 +173,7 @@ class SyncLocationsTest extends TestCase
 
         $this->artisan('sync:locations')
             ->expectsOutputToContain('Ubigeo sincronizado: 2 distritos.')
-            ->expectsTable(['Distritos procesados', 'Colegios guardados', 'Errores'], [[2, 3, 0]])
+            ->expectsTable(['Distritos procesados', 'Colegios guardados', 'Colegios desactivados', 'Errores'], [[2, 3, 0, 0]])
             ->assertSuccessful();
 
         $this->assertSame(10, Region::find('15')->zoom);
@@ -194,7 +194,7 @@ class SyncLocationsTest extends TestCase
         ]);
 
         $this->artisan('sync:locations', ['--distrito' => ['150101', '040101']])
-            ->expectsTable(['Distritos procesados', 'Colegios guardados', 'Errores'], [[2, 2, 1]])
+            ->expectsTable(['Distritos procesados', 'Colegios guardados', 'Colegios desactivados', 'Errores'], [[2, 2, '-', 1]])
             ->expectsOutput('Error al obtener escuelas para el distrito 150101 (página 1)')
             ->assertSuccessful();
 

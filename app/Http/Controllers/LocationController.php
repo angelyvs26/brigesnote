@@ -69,11 +69,11 @@ class LocationController extends Controller
     }
 
     /**
-     * Obtener los colegios de un distrito (ubigeo / idDistrito completo).
+     * Obtener los colegios activos de un distrito (ubigeo / idDistrito completo).
      */
     public function getSchools(string $ubigeo): JsonResponse
     {
-        $schools = School::where('idDistrito', $ubigeo)->get();
+        $schools = School::activos()->where('idDistrito', $ubigeo)->get();
 
         if ($schools->isEmpty()) {
             return response()->json([

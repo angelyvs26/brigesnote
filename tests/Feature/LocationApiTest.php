@@ -141,6 +141,8 @@ class LocationApiTest extends TestCase
             'director' => null,
             'dis_crecer' => '1',
             'dis_juntos' => '0',
+            'activo' => true,
+            'ultima_sincronizacion' => null,
             'created_at' => self::TS_JSON,
             'updated_at' => self::TS_JSON,
         ], $school);
