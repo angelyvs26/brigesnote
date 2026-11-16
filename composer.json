@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "hubelsolis/brigesnote",
+    "name": "angelyvs26/brigesnote",
     "type": "project",
     "description": "API REST de consulta de ubigeo (regiones, provincias, distritos) y colegios del Perú, sincronizada desde MINEDU / ESCALE.",
     "keywords": ["laravel", "ubigeo", "minedu", "escale", "colegios", "peru"],

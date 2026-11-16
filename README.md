@@ -75,7 +75,7 @@ Guía para Windows con **Laragon** (PHP 8.3, MySQL 8 y Composer incluidos). En L
 
 ### 2. Clonar e instalar dependencias
 ```bash
-git clone https://github.com/hubelsolis/brigesnote.git
+git clone https://github.com/angelyvs26/brigesnote.git
 cd brigesnote
 composer install
 ```
