@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Region;
-use App\Models\Province;
 use App\Models\District;
+use App\Models\Province;
+use App\Models\Region;
 use App\Models\School;
-use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class LocationController extends Controller
 {
-    // Obtener todas las regiones desde la base de datos
-    public function getRegions()
+    /**
+     * Obtener todas las regiones desde la base de datos.
+     */
+    public function getRegions(): JsonResponse
     {
         $regions = Region::all();
 
@@ -21,10 +23,11 @@ class LocationController extends Controller
         ]);
     }
 
-    // Obtener provincias de una región (según los dos primeros caracteres de idDistrito)
-    public function getProvinces($idRegion)
+    /**
+     * Obtener las provincias de una región (los dos primeros caracteres de idProvincia).
+     */
+    public function getProvinces(string $idRegion): JsonResponse
     {
-        // Filtrar provincias cuyo idDistrito comienza con los mismos caracteres de idRegion
         $provinces = Province::whereRaw('LEFT(idProvincia, 2) = ?', [$idRegion])->get();
 
         if ($provinces->isEmpty()) {
@@ -40,10 +43,11 @@ class LocationController extends Controller
         ]);
     }
 
-    // Obtener distritos de una provincia (según los cuatro primeros caracteres de idDistrito)
-    public function getDistricts($idProvince)
+    /**
+     * Obtener los distritos de una provincia (los cuatro primeros caracteres de idDistrito).
+     */
+    public function getDistricts(string $idProvince): JsonResponse
     {
-        // Filtrar distritos cuyo idDistrito comienza con los mismos caracteres de idProvincia
         $districts = District::whereRaw('LEFT(idDistrito, 4) = ?', [$idProvince])->get();
 
         if ($districts->isEmpty()) {
@@ -59,10 +63,12 @@ class LocationController extends Controller
         ]);
     }
 
-    // Obtener escuelas de un distrito (según idDistrito completo)
-    public function getSchools($districtId)
+    /**
+     * Obtener los colegios de un distrito (ubigeo / idDistrito completo).
+     */
+    public function getSchools(string $ubigeo): JsonResponse
     {
-        $schools = School::where('idDistrito', $districtId)->get();
+        $schools = School::where('idDistrito', $ubigeo)->get();
 
         if ($schools->isEmpty()) {
             return response()->json([
